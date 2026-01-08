@@ -1,0 +1,330 @@
+{
+  "info": {
+    "name": "Audit-Trail Book Publishing API",
+    "_postman_id": "a5d6d4f7-4d1a-4d1a-9a10-1f1d2b3c4d5e",
+    "description": "Fastify + Prisma + SQLite API collection (books + audits) with API-key auth and requestId tracing.\n\nDefaults:\n- baseUrl: http://localhost:3000\n- adminKey: admin_demo_key\n- reviewerKey: reviewer_demo_key\n\nTip: Run requests in order (folder order). Create Book stores {{bookId}} + {{requestId}} for subsequent steps.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "adminKey", "value": "admin_demo_key" },
+    { "key": "reviewerKey", "value": "reviewer_demo_key" },
+    { "key": "requestId", "value": "" },
+    { "key": "bookId", "value": "" },
+    { "key": "auditId", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.collectionVariables.set('requestId', pm.variables.replaceIn('{{$guid}}'));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('body.ok === true', function () { pm.expect(pm.response.json().ok).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Books (reviewer)",
+      "item": [
+        {
+          "name": "GET /api/books (list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/books?limit=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "books"],
+              "query": [{ "key": "limit", "value": "2" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('items is array', function () { pm.expect(Array.isArray(j.items)).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/books (create) -> sets {{bookId}} and {{requestId}}",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" },
+              { "key": "X-Request-Id", "value": "{{requestId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Book\",\n  \"authors\": \"Jane Doe\",\n  \"publishedBy\": \"Indie\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/books",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "books"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has id', function () { pm.expect(j).to.have.property('id'); });",
+                  "pm.collectionVariables.set('bookId', j.id);",
+                  "pm.test('stored bookId', function(){ pm.expect(pm.collectionVariables.get('bookId')).to.eql(j.id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/books/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "books", "{{bookId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('id matches', function () { pm.expect(j.id).to.eql(pm.collectionVariables.get('bookId')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/books/:id (update title)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" },
+              { "key": "X-Request-Id", "value": "{{requestId}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Book (Updated)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "books", "{{bookId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('title updated', function () { pm.expect(pm.response.json().title).to.eql('Postman Book (Updated)'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/books/:id (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" },
+              { "key": "X-Request-Id", "value": "{{requestId}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "books", "{{bookId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('ok === true', function () { pm.expect(pm.response.json().ok).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Audits (admin-only)",
+      "item": [
+        {
+          "name": "GET /api/audits (list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/audits?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audits"],
+              "query": [{ "key": "limit", "value": "10" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('items is array', function () { pm.expect(Array.isArray(j.items)).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/audits?requestId={{requestId}} (should include recent audit) -> sets {{auditId}}",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/audits?requestId={{requestId}}&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audits"],
+              "query": [
+                { "key": "requestId", "value": "{{requestId}}" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has at least 1 item', function () { pm.expect(j.items.length).to.be.greaterThan(0); });",
+                  "pm.collectionVariables.set('auditId', j.items[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/audits/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{adminKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/audits/{{auditId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audits", "{{auditId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.test('has requestId', function(){ pm.expect(j.requestId).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/audits (reviewer forbidden)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{reviewerKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/audits?limit=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audits"],
+              "query": [{ "key": "limit", "value": "1" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

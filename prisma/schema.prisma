@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  reviewer
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  restore
+  login
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  role      UserRole
+  apiKey    String   @unique
+  createdAt DateTime @default(now())
+
+  booksCreated Book[] @relation("BookCreatedBy")
+  booksUpdated Book[] @relation("BookUpdatedBy")
+  booksDeleted Book[] @relation("BookDeletedBy")
+  audits       AuditLog[] @relation("AuditActor")
+}
+
+model Book {
+  id          String   @id @default(cuid())
+  title       String
+  authors     String
+  publishedBy String
+
+  createdById String
+  createdBy   User     @relation("BookCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User?    @relation("BookUpdatedBy", fields: [updatedById], references: [id])
+
+  deletedById String?
+  deletedBy   User?    @relation("BookDeletedBy", fields: [deletedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
+
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  timestamp DateTime    @default(now())
+
+  entity   String
+  entityId String
+  action   AuditAction
+
+  actorId  String
+  actor    User        @relation("AuditActor", fields: [actorId], references: [id])
+
+  requestId String
+
+  route  String?
+  method String?
+
+  // Optional: can be populated by request lifecycle hooks if desired.
+  status Int?
+
+  diff          Json
+  changedFields String
+
+  @@index([timestamp])
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([requestId])
+  @@index([action])
+}
+
