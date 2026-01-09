@@ -8,7 +8,7 @@
 - **Centralized error handling** returning `{ error: { code, message, details?, requestId } }`
 
 ## Tech
-- **SQLite + Prisma**: easy setup for prototypes and local testing
+- **MongoDB Atlas + Mongoose**: production-ready persistence and easy cloud setup
 - **Cursor pagination**: stable pagination, used for both Books and Audits.
 - **Soft delete for books**: keeps history while still behaving like delete; always auditable.
 
@@ -19,7 +19,7 @@ The codebase follows **routes → controllers → services → repositories**:
 - **Routes (HTTP wiring only)**: `src/modules/*/routes.ts`
 - **Controllers (request parsing/validation + HTTP responses)**: `src/modules/*/controller.ts`
 - **Services (business logic)**: `src/modules/*/service.ts`
-- **Repositories (DB access via Prisma)**: `src/modules/*/repository.ts`
+- **Repositories (DB access via Mongoose)**: `src/modules/*/repository.ts`
 
 ## Setup (Bun)
 
@@ -40,8 +40,7 @@ cp env.example .env
 3) Migrate + seed
 
 ```bash
-bunx prisma migrate dev --name init
-bun run prisma:seed
+bun run seed
 ```
 
 4) Run
@@ -51,6 +50,13 @@ bun run dev
 ```
 
 Server: `http://localhost:3000` (or whatever `PORT` is set to)
+
+## Deploy / Render notes
+
+The `start:render` script can optionally run `seed` on process start.
+
+- Set `RUN_SEED_ON_START=1` only for first-time bootstrapping or ephemeral databases.
+- For persistent cloud DBs (already populated), keep `RUN_SEED_ON_START=0` to avoid unnecessary startup work.
 
 ## Test with Postman (collection)
 
@@ -72,7 +78,9 @@ Pino logs include `level,time,msg,userId,requestId,route,method,status,durationM
 
 - Default: **file sink** to `./logs/app.log` (controlled by `LOG_SINK=file` + `LOG_FILE`)
 - Optional: `LOG_SINK=pretty` for local readable logs
-- Placeholders: `LOG_SINK=elastic` / `LOG_SINK=logtail` are stubbed code paths
+- Placeholder remote sinks:
+  - `LOG_SINK=elastic` → JSON logs to **stdout** (intended for Elastic Agent/Filebeat-style collection)
+  - `LOG_SINK=logtail` → JSON logs to **stdout** (intended for Logtail/Vector-style collection)
 
 ## Audit trail (config-driven)
 
@@ -86,9 +94,9 @@ export const auditConfig = {
 ```
 
 **Extending audit to a new entity** (minimal changes):
-1) Add a Prisma model (e.g. `Publisher`) to `prisma/schema.prisma` and run migration.
+1) Add a new Mongoose model (e.g. `Publisher`) under `src/db/models/`.
 2) Add an entry to `src/config/auditConfig.ts`.
-3) No additional hooks needed: audit capture is implemented via Prisma Client query extensions.
+3) Add audit calls in the relevant repository functions (create/update/delete) using `src/db/auditWriter.ts`.
 
 Audit records include: `entity`, `entityId`, `action`, `actorId`, `requestId`, `timestamp`, and a `diff` (`before/after/changedFields`) that respects `exclude/redact`.
 

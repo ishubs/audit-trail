@@ -1,5 +1,6 @@
 import { decodeCursor, encodeCursor } from '../../utils/cursor.js';
 import * as auditRepo from './repository.js';
+import mongoose from 'mongoose';
 
 export type AuditsListQuery = {
   limit: number;
@@ -9,7 +10,7 @@ export type AuditsListQuery = {
   entity?: string;
   entityId?: string;
   actorId?: string;
-  action?: 'create' | 'update' | 'delete' | 'restore' | 'login';
+  action?: 'create' | 'update' | 'delete' | 'restore' | 'auth_check';
   fieldsChanged?: string;
   requestId?: string;
 };
@@ -17,17 +18,17 @@ export type AuditsListQuery = {
 export async function listAudits(query: AuditsListQuery) {
   const cursor = query.cursor ? decodeCursor(query.cursor) : null;
 
-  const where: any = {};
-  if (query.entity) where.entity = query.entity;
-  if (query.entityId) where.entityId = query.entityId;
-  if (query.actorId) where.actorId = query.actorId;
-  if (query.action) where.action = query.action;
-  if (query.requestId) where.requestId = query.requestId;
+  const filter: any = {};
+  if (query.entity) filter.entity = query.entity;
+  if (query.entityId) filter.entityId = query.entityId;
+  if (query.actorId) filter.actorId = query.actorId;
+  if (query.action) filter.action = query.action;
+  if (query.requestId) filter.requestId = query.requestId;
 
   if (query.from || query.to) {
-    where.timestamp = {};
-    if (query.from) where.timestamp.gte = new Date(query.from);
-    if (query.to) where.timestamp.lte = new Date(query.to);
+    filter.timestamp = {};
+    if (query.from) filter.timestamp.$gte = new Date(query.from);
+    if (query.to) filter.timestamp.$lte = new Date(query.to);
   }
 
   if (query.fieldsChanged) {
@@ -36,22 +37,26 @@ export async function listAudits(query: AuditsListQuery) {
       .map((s) => s.trim())
       .filter(Boolean);
     if (fields.length) {
-      where.OR = fields.map((f) => ({ changedFields: { contains: `,${f},` } }));
+      const ors = fields.map((f) => ({
+        changedFieldsPacked: { $regex: new RegExp(`,${escapeRegex(f)},`) }
+      }));
+      filter.$or = filter.$or ? [...filter.$or, ...ors] : ors;
     }
   }
 
-  if (cursor) {
+  if (cursor && mongoose.isValidObjectId(cursor.id)) {
+    const cursorTs = new Date(cursor.ts);
+    const cursorId = new mongoose.Types.ObjectId(cursor.id);
     const cursorFilter = {
-      OR: [
-        { timestamp: { lt: new Date(cursor.ts) } },
-        { timestamp: new Date(cursor.ts), id: { lt: cursor.id } }
+      $or: [
+        { timestamp: { $lt: cursorTs } },
+        { timestamp: { $eq: cursorTs }, _id: { $lt: cursorId } }
       ]
     };
-    if (where.AND) where.AND.push(cursorFilter);
-    else where.AND = [cursorFilter];
+    filter.$and = filter.$and ? [...filter.$and, cursorFilter] : [cursorFilter];
   }
 
-  const items = await auditRepo.listAudits({ where, limitPlusOne: query.limit + 1 });
+  const items = await auditRepo.listAudits({ filter, limitPlusOne: query.limit + 1 });
 
   const hasMore = items.length > query.limit;
   const pageItems = hasMore ? items.slice(0, query.limit) : items;
@@ -69,3 +74,6 @@ export async function getAuditById(id: string) {
   return await auditRepo.findAuditById(id);
 }
 
+function escapeRegex(input: string) {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

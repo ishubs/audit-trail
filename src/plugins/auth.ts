@@ -1,7 +1,8 @@
 import { type FastifyInstance } from 'fastify';
 
-import { prisma } from '../db/prisma.js';
 import { enterWithRequestContext, setUserId } from '../context/requestContext.js';
+import { findUserByApiKey } from '../modules/users/userService.js';
+import { writeAudit } from '../db/auditWriter.js';
 
 export type AuthUser = {
   id: string;
@@ -29,10 +30,7 @@ export async function registerAuth(app: FastifyInstance) {
       throw app.httpErrors.unauthorized('Missing X-API-Key');
     }
 
-    const user = await prisma.user.findUnique({
-      where: { apiKey },
-      select: { id: true, name: true, role: true }
-    });
+    const user = await findUserByApiKey(apiKey);
     if (!user) {
       throw app.httpErrors.unauthorized('Invalid API key');
     }
@@ -41,6 +39,14 @@ export async function registerAuth(app: FastifyInstance) {
     req.requestContext.userId = user.id;
     enterWithRequestContext(req.requestContext);
     setUserId(user.id);
+
+    await writeAudit({
+      entity: 'User',
+      entityId: user.id,
+      action: 'auth_check',
+      before: null,
+      after: { id: user.id, name: user.name, role: user.role }
+    });
   });
 }
 

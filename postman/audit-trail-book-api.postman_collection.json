@@ -2,7 +2,7 @@
   "info": {
     "name": "Audit-Trail Book Publishing API",
     "_postman_id": "a5d6d4f7-4d1a-4d1a-9a10-1f1d2b3c4d5e",
-    "description": "Fastify + Prisma + SQLite API collection (books + audits) with API-key auth and requestId tracing.\n\nDefaults:\n- baseUrl: http://localhost:3000\n- adminKey: admin_demo_key\n- reviewerKey: reviewer_demo_key\n\nTip: Run requests in order (folder order). Create Book stores {{bookId}} + {{requestId}} for subsequent steps.",
+    "description": "Fastify + MongoDB (Mongoose) API collection (books + audits) with API-key auth and requestId tracing.\n\nDefaults:\n- baseUrl: http://localhost:3000\n- adminKey: admin_demo_key\n- reviewerKey: reviewer_demo_key\n\nTip: Run requests in order (folder order). Create Book stores {{bookId}} + {{requestId}} for subsequent steps.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -19,7 +19,11 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "pm.collectionVariables.set('requestId', pm.variables.replaceIn('{{$guid}}'));"
+          "// Only rotate requestId for requests that actually include X-Request-Id (mutations).",
+          "// This keeps {{requestId}} stable for subsequent audit queries that rely on the last mutation's requestId.",
+          "if (pm.request.headers.has('X-Request-Id')) {",
+          "  pm.collectionVariables.set('requestId', pm.variables.replaceIn('{{$guid}}'));",
+          "}"
         ]
       }
     }

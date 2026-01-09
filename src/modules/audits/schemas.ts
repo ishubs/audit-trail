@@ -10,7 +10,7 @@ export const auditsListQuerySchema = z.object({
   entity: z.string().min(1).optional(),
   entityId: z.string().min(1).optional(),
   actorId: z.string().min(1).optional(),
-  action: z.enum(['create', 'update', 'delete', 'restore', 'login']).optional(),
+  action: z.enum(['create', 'update', 'delete', 'restore', 'auth_check']).optional(),
   fieldsChanged: z.string().min(1).optional(),
   requestId: z.string().min(1).optional()
 });

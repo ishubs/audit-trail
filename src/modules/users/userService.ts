@@ -1,4 +1,5 @@
-import { prisma } from '../../db/prisma.js';
+import { UserModel } from '../../db/models/User.js';
+import { stripMongoInternals } from '../../db/models/_shared.js';
 
 export type AuthUser = {
   id: string;
@@ -7,10 +8,9 @@ export type AuthUser = {
 };
 
 export async function findUserByApiKey(apiKey: string): Promise<AuthUser | null> {
-  const user = await prisma.user.findUnique({
-    where: { apiKey },
-    select: { id: true, name: true, role: true }
-  });
-  return user;
+  const user = await UserModel.findOne({ apiKey }).lean();
+  if (!user) return null;
+  const pub = stripMongoInternals(user);
+  return { id: pub.id, name: pub.name, role: pub.role };
 }
 

@@ -1,9 +1,9 @@
-import { type LoggerOptions } from 'pino';
+import pino, { type LoggerOptions } from 'pino';
 
 import { type Env } from '../config/env.js';
 import { getRequestContext } from '../context/requestContext.js';
 
-export function buildLoggerOptions(env: Env): LoggerOptions {
+export function buildLogger(env: Env) {
   const base: LoggerOptions = {
     level: env.LOG_LEVEL,
     base: null,
@@ -23,20 +23,31 @@ export function buildLoggerOptions(env: Env): LoggerOptions {
   };
 
   if (env.LOG_SINK === 'pretty') {
-    return {
-      ...base,
-      transport: { target: 'pino-pretty', options: { colorize: true } }
-    } as LoggerOptions;
+    return pino(base, pino.transport({ target: 'pino-pretty', options: { colorize: true } }));
   }
 
-  // Default to file logging (also used as fallback for stubbed sinks)
-  // NOTE: Pino disallows custom `formatters.level` when using `transport.targets`.
-  // We only have a single destination, so use `transport.target`.
-  const fileTransport = {
-    target: 'pino/file',
-    options: { destination: env.LOG_FILE, mkdir: true }
+  if (env.LOG_SINK === 'file') {
+    return pino(base, pino.transport({ target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }));
+  }
+
+  // Placeholder "remote sinks":
+  // In real deployments you'd typically ship JSON logs from stdout to a collector/agent (Elastic/Logtail/etc).
+  // We keep the behavior distinct from LOG_SINK=file and make it note-worthy in logs via `logSink`.
+  const baseWithSink: LoggerOptions = {
+    ...base,
+    mixin() {
+      const ctx = getRequestContext();
+      const core = ctx ? { requestId: ctx.requestId, userId: ctx.userId } : {};
+      return { ...core, logSink: env.LOG_SINK };
+    }
   };
 
-  return { ...base, transport: fileTransport } as LoggerOptions;
+  if (env.LOG_SINK === 'elastic' || env.LOG_SINK === 'logtail') {
+    // JSON to stdout (collector picks it up).
+    return pino(baseWithSink, pino.transport({ target: 'pino/file', options: { destination: 1 } }));
+  }
+
+  // Safety fallback
+  return pino(base, pino.transport({ target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }));
 }
 

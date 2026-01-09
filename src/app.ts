@@ -4,7 +4,7 @@ import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 
 import { type Env } from './config/env.js';
-import { buildLoggerOptions } from './plugins/logger.js';
+import { buildLogger } from './plugins/logger.js';
 import { requestTracingPlugin } from './plugins/requestTracing.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandling } from './plugins/errorHandler.js';
@@ -13,7 +13,7 @@ import { registerAuditRoutes } from './modules/audits/routes.js';
 
 export async function buildApp(env: Env): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: buildLoggerOptions(env),
+    logger: buildLogger(env),
     disableRequestLogging: true,
     trustProxy: true
   });
