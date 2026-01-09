@@ -12,6 +12,15 @@
 - **Cursor pagination**: stable pagination, used for both Books and Audits.
 - **Soft delete for books**: keeps history while still behaving like delete; always auditable.
 
+## Project structure (clean boundaries)
+
+The codebase follows **routes → controllers → services → repositories**:
+
+- **Routes (HTTP wiring only)**: `src/modules/*/routes.ts`
+- **Controllers (request parsing/validation + HTTP responses)**: `src/modules/*/controller.ts`
+- **Services (business logic)**: `src/modules/*/service.ts`
+- **Repositories (DB access via Prisma)**: `src/modules/*/repository.ts`
+
 ## Setup (Bun)
 
 1) Install deps
