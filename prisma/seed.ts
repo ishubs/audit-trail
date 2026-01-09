@@ -40,13 +40,16 @@ async function main() {
     { title: 'Domain-Driven Design', authors: 'Eric Evans', publishedBy: 'Addison-Wesley' }
   ];
 
-  for (const b of books) {
-    await prisma.book.create({
-      data: {
-        ...b,
-        createdById: reviewer.id
-      }
-    });
+  const existingBooks = await prisma.book.count();
+  if (existingBooks === 0) {
+    for (const b of books) {
+      await prisma.book.create({
+        data: {
+          ...b,
+          createdById: reviewer.id
+        }
+      });
+    }
   }
 
   // Print keys for convenience in local dev
