@@ -1,9 +1,9 @@
-import pino, { type LoggerOptions } from 'pino';
+import { type LoggerOptions } from 'pino';
 
 import { type Env } from '../config/env.js';
 import { getRequestContext } from '../context/requestContext.js';
 
-export function buildLogger(env: Env) {
+export function buildLoggerOptions(env: Env): LoggerOptions {
   const base: LoggerOptions = {
     level: env.LOG_LEVEL,
     base: null,
@@ -23,11 +23,17 @@ export function buildLogger(env: Env) {
   };
 
   if (env.LOG_SINK === 'pretty') {
-    return pino(base, pino.transport({ target: 'pino-pretty', options: { colorize: true } }));
+    return {
+      ...base,
+      transport: { target: 'pino-pretty', options: { colorize: true } }
+    } as LoggerOptions;
   }
 
   if (env.LOG_SINK === 'file') {
-    return pino(base, pino.transport({ target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }));
+    return {
+      ...base,
+      transport: { target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }
+    } as LoggerOptions;
   }
 
   // Placeholder "remote sinks":
@@ -44,10 +50,16 @@ export function buildLogger(env: Env) {
 
   if (env.LOG_SINK === 'elastic' || env.LOG_SINK === 'logtail') {
     // JSON to stdout (collector picks it up).
-    return pino(baseWithSink, pino.transport({ target: 'pino/file', options: { destination: 1 } }));
+    return {
+      ...baseWithSink,
+      transport: { target: 'pino/file', options: { destination: 1 } }
+    } as LoggerOptions;
   }
 
   // Safety fallback
-  return pino(base, pino.transport({ target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }));
+  return {
+    ...base,
+    transport: { target: 'pino/file', options: { destination: env.LOG_FILE, mkdir: true } }
+  } as LoggerOptions;
 }
 
